@@ -3,17 +3,19 @@ import xml.etree.ElementTree as ET
 import random
 import string
 import os
-import pip
+import subprocess
+import sys
 
 def pip_install(mod):
-    pip.main(['install', mod])
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', mod])
+
 
 if __name__ == "__main__":
 
     try:
         import requests
     except:
-        pip_install('request')
+        pip_install('requests')
         import requests
 
 parser = argparse.ArgumentParser(prog='jnlp_downloader.py',
@@ -51,7 +53,7 @@ except:
 
 try:
     xmlroot = xmltree.getroot()
-    jnlpurl = xmlroot.attrib['codebase'] + '/'
+    jnlpurl = xmlroot.attrib['codebase']
 
 except:
     print( '[*] JNLP file was misformed, exiting.')
@@ -80,8 +82,13 @@ i = 0
 
 for jars in xmlroot.iter('jar'):
 
-    jnlpfile = jars.get('href').rsplit('/')[1]
-    jnlppath = jars.get('href').rsplit('/')[0] + '/'
+    print(jars.get('href'))
+    try:
+        jnlpfile = jars.get('href').rsplit('/')[1]
+        jnlppath = jars.get('href').rsplit('/')[0] + '/'
+    except:
+        jnlpfile = None
+        jnlppath = None
     jnlpuri = jars.get('href')
 
     if jars.get('version') is None:
@@ -124,8 +131,12 @@ for link in jnlpLinks:
 
     if jnlpresp.status_code == 200:
 
-        print( '[-] Saving file: ' + link[2] + ' to ' + randDir)
-        output = open(randDir + '/' + link[2], 'wb')
+        if link[2] is not None:
+            print( '[-] Saving file: ' + link[2] + ' to ' + randDir)
+            output = open(randDir + '/' + link[2], 'wb')
+        else:
+            print('[-] Saving file: ' + link[0] + ' to ' + randDir )
+            output = open(randDir + '/' + link[0], 'wb')
         output.write(jnlpresp.content)
         output.close()
 
@@ -155,3 +166,6 @@ for link in jnlpLinks:
                 output = open(randDir+'/'+link[4], 'wb')
                 output.write(jnlpresp.content)
                 output.close()
+
+for arguments in xmlroot.iter('argument'):
+    print(arguments)
