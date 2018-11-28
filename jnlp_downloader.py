@@ -5,6 +5,8 @@ import string
 import os
 import subprocess
 import sys
+from tempfile import gettempdir
+import shutil
 
 def pip_install(mod):
     subprocess.check_call([sys.executable, '-m', 'pip', 'install', mod])
@@ -33,6 +35,7 @@ r = ''
 session = requests.Session()
 
 randDir = ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(10))
+tmp = os.path.join(gettempdir(), randDir)
 
 r = session.get(args['link'], verify=False)
 
@@ -68,21 +71,20 @@ else:
     path_delim = '\\'
 
 try:
-    if not os.path.exists(os.getcwd() + path_delim + randDir):
-        os.mkdir(os.getcwd() + path_delim + randDir)
-    else:
-        print( '[*] Random directory already exists, defaulting to current.')
-        randDir = '.'
+        os.mkdir(tmp)
 except:
     print( '[*] Failed to create random directory, defaulting to current.')
-    randDir = '.'
+    tmp = '.'
 
 jnlpLinks = []
+jnlpmain = ''
 i = 0
 
 for jars in xmlroot.iter('jar'):
 
-    print(jars.get('href'))
+    if jars.get('main'):
+        jnlpmain = jars.get('href')
+
     try:
         jnlpfile = jars.get('href').rsplit('/')[1]
         jnlppath = jars.get('href').rsplit('/')[0] + '/'
@@ -133,10 +135,10 @@ for link in jnlpLinks:
 
         if link[2] is not None:
             print( '[-] Saving file: ' + link[2] + ' to ' + randDir)
-            output = open(randDir + '/' + link[2], 'wb')
+            output = open(tmp + '/' + link[2], 'wb')
         else:
-            print('[-] Saving file: ' + link[0] + ' to ' + randDir )
-            output = open(randDir + '/' + link[0], 'wb')
+            print('[-] Saving file: ' + link[0] + ' to ' + tmp )
+            output = open(tmp + '/' + link[0], 'wb')
         output.write(jnlpresp.content)
         output.close()
 
@@ -149,8 +151,8 @@ for link in jnlpLinks:
             jnlpresp = session.get(jnlpurl + link[1])
 
             if jnlpresp.status_code == 200:
-                print( '[-] Saving file: ' + link[2] + ' to ' + randDir)
-                output = open(randDir + '/' + link[2], 'wb')
+                print( '[-] Saving file: ' + link[2] + ' to ' + tmp)
+                output = open(tmp + '/' + link[2], 'wb')
                 output.write(jnlpresp.content)
                 output.close()
 
@@ -162,10 +164,25 @@ for link in jnlpLinks:
             jnlpresp = session.get(jnlpurl + link[3])
 
             if jnlpresp.status_code == 200:
-                print('[-] Saving file: ' + link[4] + ' to ' + randDir)
-                output = open(randDir+'/'+link[4], 'wb')
+                print('[-] Saving file: ' + link[4] + ' to ' + tmp)
+                output = open(tmp+'/'+link[4], 'wb')
                 output.write(jnlpresp.content)
                 output.close()
 
-for arguments in xmlroot.iter('argument'):
-    print(arguments)
+
+def execute_java(java_file, jnlpmain, max_heap_size,argument):
+    java_path = tmp + '/'
+    environ = os.environ.copy()
+    jar_path = java_path + '*'
+    cmd = 'java -XX:MaxHeapSize=%s -cp %s %s %s'%(max_heap_size, jar_path ,java_file, argument)
+    proc = subprocess.Popen(cmd, shell=True, env = environ, cwd = java_path)
+    proc.wait()
+
+
+application_desc = xmlroot.find('application-desc')
+j2se = xmlroot.find('resources/j2se')
+argument = xmlroot.find('application-desc/argument')
+
+execute_java(application_desc.get('main-class'), jnlpmain, j2se.get('max-heap-size'), argument.text)
+
+shutil.rmtree(tmp, ignore_errors=True)
