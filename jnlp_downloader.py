@@ -77,13 +77,11 @@ except:
     tmp = '.'
 
 jnlpLinks = []
-jnlpmain = ''
+jnlpjars = []
 i = 0
 
 for jars in xmlroot.iter('jar'):
 
-    if jars.get('main'):
-        jnlpmain = jars.get('href')
 
     try:
         jnlpfile = jars.get('href').rsplit('/')[1]
@@ -92,6 +90,7 @@ for jars in xmlroot.iter('jar'):
         jnlpfile = None
         jnlppath = None
     jnlpuri = jars.get('href')
+    jnlpjars.append(jnlpuri)
 
     if jars.get('version') is None:
         jnlpalt = None
@@ -170,11 +169,12 @@ for link in jnlpLinks:
                 output.close()
 
 
-def execute_java(java_file, jnlpmain, max_heap_size,argument):
+def execute_java(java_file, jnlpjars, max_heap_size,argument):
     java_path = tmp + '/'
     environ = os.environ.copy()
-    jar_path = java_path + '*'
-    cmd = 'java -XX:MaxHeapSize=%s -cp %s %s %s'%(max_heap_size, jar_path ,java_file, argument)
+    jar_path = java_path + "*:."
+    print(jnlpjars)
+    cmd = 'java -XX:MaxHeapSize={0} -cp {1} {2} {3}'.format(max_heap_size, jar_path ,java_file, argument)
     proc = subprocess.Popen(cmd, shell=True, env = environ, cwd = java_path)
     proc.wait()
 
@@ -183,6 +183,6 @@ application_desc = xmlroot.find('application-desc')
 j2se = xmlroot.find('resources/j2se')
 argument = xmlroot.find('application-desc/argument')
 
-execute_java(application_desc.get('main-class'), jnlpmain, j2se.get('max-heap-size'), argument.text)
+execute_java(application_desc.get('main-class'), jnlpjars, j2se.get('max-heap-size'), argument.text)
 
 shutil.rmtree(tmp, ignore_errors=True)
